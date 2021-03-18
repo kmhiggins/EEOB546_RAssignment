@@ -1,0 +1,138 @@
+---
+title: "R Assignment BCB546"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+##Load libraries
+library(dplyr)
+library(ggplot2)
+##read in files 
+
+fang <- read.table("C:/Users/kmjoh/Desktop/BCB546-Spring2021/assignments/R_Assignment/fang_et_al_genotypes.txt", header = T)
+
+snp <- read.table("C:/Users/kmjoh/Desktop/BCB546-Spring2021/assignments/R_Assignment/snp_position.txt", sep = "\t", header = T)
+```
+
+
+```{r}
+##Data investigation
+##can see column counts and row counts in data summary window but can use the following if unsure
+dim(fang)
+dim(snp)
+
+##see head and tail of dataframes
+head(fang)
+tail(fang)
+head(snp)
+tail(snp)
+
+##see class of each column
+sapply(fang, class)
+sapply(snp, class)
+```
+
+
+```{r}
+##subset into teosinte and maize files
+teosinte <- subset.data.frame(fang, fang$Group == "ZMPBA"| fang$Group == "ZMPIL"|fang$Group == "ZMPJA")
+maize <- subset.data.frame(fang, fang$Group == "ZMMIL"| fang$Group == "ZMMLR"|fang$Group == "ZMMMR")
+
+##Remove Group and JG_OTU columns before transposition
+teosinte$JG_OTU <- NULL
+teosinte$Group <- NULL
+maize$JG_OTU <- NULL
+maize$Group <- NULL
+
+##transpose maize and teosinte files 
+maize_tr <- t(maize)
+teosinte_tr <- t(teosinte)
+
+##make SNP_IDs rownames in snp
+row.names(snp) <- snp$SNP_ID
+snp$SNP_ID <- NULL
+
+##merge teosinte/mmaize dataframes with snps df
+maize_merge <- merge(snp, maize_tr, by = 0)
+teosinte_merge <- merge(snp, teosinte_tr, by = 0)
+
+##pull out multiple and unknown into own df 
+unknown_m <- subset.data.frame(maize_merge, maize_merge$Chromosome == "unknown")
+unknown_t <- subset.data.frame(teosinte_merge, teosinte_merge$Chromosome == "unknown")
+multiple_m <- subset.data.frame(maize_merge, maize_merge$Chromosome == "multiple")
+multiple_t <- subset.data.frame(teosinte_merge, teosinte_merge$Chromosome == "multiple")
+
+
+##make position and chr columns numeric so they sort correctly
+teosinte_merge$Chromosome <- as.numeric(teosinte_merge$Chromosome)
+teosinte_merge$Position <- as.numeric(teosinte_merge$Position)
+maize_merge$Chromosome <- as.numeric(maize_merge$Chromosome)
+maize_merge$Position <- as.numeric(maize_merge$Position)
+
+##sort files by chromosome and Position
+maize_asc <- maize_merge[order(maize_merge$Chromosome, maize_merge$Position),]
+teosinte_asc <- teosinte_merge[order(teosinte_merge$Chromosome, teosinte_merge$Position),]
+
+##remove NA calls 
+maize_asc <- maize_asc %>% filter(!is.na(maize_asc$Chromosome))
+teosinte_asc <- teosinte_asc %>% filter(!is.na(teosinte_asc$Chromosome))
+
+##split into individual dataframes
+#m<- maize_asc %>% group_split(maize_asc$Chromosome) 
+#names(m) <- c("maize1","maize2","maize3","maize4","maize5","maize6","maize7","maize8","maize9","maize10")
+#list2env(m, envir = .GlobalEnv)
+
+
+#t <- teosinte_asc %>% group_split(teosinte_asc$Chromosome) 
+#names(t) <- c("teosinte1","teosinte2","teosinte3","teosinte4","teosinte5","teosinte6","teosinte7","teosinte8","teosinte9","teosinte10")
+#list2env(t, envir = .GlobalEnv)
+
+##Save into files
+
+##Create naming vector 
+mnames <- c("maize1","maize2","maize3","maize4","maize5","maize6","maize7","maize8","maize9","maize10")
+tnames <- c("teosinte1","teosinte2","teosinte3","teosinte4","teosinte5","teosinte6","teosinte7","teosinte8","teosinte9","teosinte10")
+##Save into files subsetting by chromosome number
+for (i in 1:length(maize_asc$Chromosome)) {
+  write.table(subset.data.frame(maize_asc, maize_asc$Chromosome == i),
+    file = paste0(mnames[i], ".txt"), sep = "\t", row.names = F, quote = F)
+  
+}
+
+for (i in 1:length(teosinte_asc$Chromosome)) {
+  write.table(subset.data.frame(teosinte_asc, teosinte_asc$Chromosome == i),
+    file = paste(tnames[i], ".txt"), sep = "\t", row.names = F, quote = F)
+  
+}
+
+
+##Create descending snp size file
+maize_desc <- maize_merge[order(maize_merge$Chromosome, -maize_merge$Position),]
+teosinte_desc <- teosinte_merge[order(teosinte_merge$Chromosome, -teosinte_merge$Position),]
+
+##Replace "?" with "-" in SNP information
+
+##Save into files subsetting by chromosome number
+for (i in 1:length(maize_desc$Chromosome)) {
+  write.table(subset.data.frame(maize_desc, maize_desc$Chromosome == i),
+    file = paste0(mnames[i], ".txt"), sep = "\t", row.names = F, quote = F)
+  
+}
+
+for (i in 1:length(teosinte_desc$Chromosome)) {
+  write.table(subset.data.frame(teosinte_desc, teosinte_desc$Chromosome == i),
+    file = paste(tnames[i], ".txt"), sep = "\t", row.names = F, quote = F)
+  
+}
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
