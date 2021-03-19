@@ -11,6 +11,8 @@ Try executing this chunk by clicking the *Run* button within the chunk or by pla
 ##Load libraries
 library(dplyr)
 library(ggplot2)
+library(tidyverse)
+library(paletteer)
 ##read in files 
 
 fang <- read.table("C:/Users/kmjoh/Desktop/BCB546-Spring2021/assignments/R_Assignment/fang_et_al_genotypes.txt", header = T)
@@ -49,8 +51,8 @@ maize$JG_OTU <- NULL
 maize$Group <- NULL
 
 ##transpose maize and teosinte files 
-maize_tr <- t(maize)
-teosinte_tr <- t(teosinte)
+maize_tr <- data.frame(t(maize))
+teosinte_tr <- data.frame(t(teosinte))
 
 ##make SNP_IDs rownames in snp
 row.names(snp) <- snp$SNP_ID
@@ -81,31 +83,24 @@ teosinte_asc <- teosinte_merge[order(teosinte_merge$Chromosome, teosinte_merge$P
 maize_asc <- maize_asc %>% filter(!is.na(maize_asc$Chromosome))
 teosinte_asc <- teosinte_asc %>% filter(!is.na(teosinte_asc$Chromosome))
 
-##split into individual dataframes
-#m<- maize_asc %>% group_split(maize_asc$Chromosome) 
-#names(m) <- c("maize1","maize2","maize3","maize4","maize5","maize6","maize7","maize8","maize9","maize10")
-#list2env(m, envir = .GlobalEnv)
 
-
-#t <- teosinte_asc %>% group_split(teosinte_asc$Chromosome) 
-#names(t) <- c("teosinte1","teosinte2","teosinte3","teosinte4","teosinte5","teosinte6","teosinte7","teosinte8","teosinte9","teosinte10")
-#list2env(t, envir = .GlobalEnv)
 
 ##Save into files
 
 ##Create naming vector 
 mnames <- c("maize1","maize2","maize3","maize4","maize5","maize6","maize7","maize8","maize9","maize10")
 tnames <- c("teosinte1","teosinte2","teosinte3","teosinte4","teosinte5","teosinte6","teosinte7","teosinte8","teosinte9","teosinte10")
+
 ##Save into files subsetting by chromosome number
 for (i in 1:length(maize_asc$Chromosome)) {
   write.table(subset.data.frame(maize_asc, maize_asc$Chromosome == i),
-    file = paste0(mnames[i], ".txt"), sep = "\t", row.names = F, quote = F)
+    file = paste0("asc",mnames[i], ".txt"), sep = "\t", row.names = F, quote = F)
   
 }
 
 for (i in 1:length(teosinte_asc$Chromosome)) {
   write.table(subset.data.frame(teosinte_asc, teosinte_asc$Chromosome == i),
-    file = paste(tnames[i], ".txt"), sep = "\t", row.names = F, quote = F)
+    file = paste("asc",tnames[i], ".txt"), sep = "\t", row.names = F, quote = F)
   
 }
 
@@ -115,20 +110,98 @@ maize_desc <- maize_merge[order(maize_merge$Chromosome, -maize_merge$Position),]
 teosinte_desc <- teosinte_merge[order(teosinte_merge$Chromosome, -teosinte_merge$Position),]
 
 ##Replace "?" with "-" in SNP information
+maize_desc <- as_tibble(lapply(maize_desc, gsub, pattern="?", replacement="-", fixed=T))
+teosinte_desc <- as_tibble(lapply(teosinte_desc, gsub, pattern="?", replacement= "-", fixed=T))
 
 ##Save into files subsetting by chromosome number
 for (i in 1:length(maize_desc$Chromosome)) {
   write.table(subset.data.frame(maize_desc, maize_desc$Chromosome == i),
-    file = paste0(mnames[i], ".txt"), sep = "\t", row.names = F, quote = F)
+    file = paste0("desc", mnames[i], ".txt"), sep = "\t", row.names = F, quote = F)
   
 }
 
 for (i in 1:length(teosinte_desc$Chromosome)) {
   write.table(subset.data.frame(teosinte_desc, teosinte_desc$Chromosome == i),
-    file = paste(tnames[i], ".txt"), sep = "\t", row.names = F, quote = F)
+    file = paste("desc", tnames[i], ".txt"), sep = "\t", row.names = F, quote = F)
   
 }
 
+```
+
+
+Time for visualization
+```{r}
+##Reshape data for visualization
+
+t_long <- teosinte_merge %>% pivot_longer(
+  cols = starts_with("X"),
+  names_to = NULL,
+  names_prefix = "X",
+  values_to = "SNP",
+)
+m_long <- maize_merge %>% pivot_longer(
+  cols = starts_with("X"),
+  names_to = NULL,
+  names_prefix = "X",
+  values_to = "SNP",
+)
+##Change Chromosomes to factors
+maize_merge$Chromosome <- factor(maize_merge$Chromosome, levels = c(1,2,3,4,5,6,7,8,9,10))
+teosinte_merge$Chromosome <- factor(teosinte_merge$Chromosome, levels = c(1,2,3,4,5,6,7,8,9,10))
+
+##Split SNP column 
+t_split <- t_long %>% separate(
+  SNP, c("SNP1", "SNP2"), remove = F)
+m_split <- m_long %>% separate(
+  SNP, c("SNP1","SNP2"), remove = F)
+##Replace blanks with "missing"
+
+##Class as heterozygote y/n based on if the two snp columns are the same
+
+t_split$hetero <- ifelse(t_split$SNP1 == t_split$SNP2, "N", "Y")
+m_split$hetero <- ifelse(m_split$SNP1 == m_split$SNP2, "N", "Y")
+
+##Replace missing values 
+
+m_split <- m_split %>% mutate(hetero = replace(hetero, SNP1 == "", "missing"))
+t_split <- t_split %>% mutate(hetero = replace(hetero, SNP1 == "", "missing"))
+
+
+##SNP counts by chromosome, using the not elongated version to give a more accurate count of snp locations
+m_snp_count <- ggplot(maize_merge) + geom_bar(aes(x = Chromosome, fill = Chromosome)) + theme_minimal(base_size = 15) + scale_fill_brewer(palette = "PRGn")
+ggsave("Maize_SNP_location_bars.png", plot = m_snp_count)
+t_snp_count <- ggplot(teosinte_merge) + geom_bar(aes(x = Chromosome, fill = Chromosome)) + theme_minimal(base_size = 15) +scale_fill_brewer(palette = "Spectral")
+ggsave("Teosinte_SNP_location_bars.png", plot = m_snp_count)
+
+##Density plots
+maize_all_density <- ggplot(maize_merge) + geom_density(aes(x=Position, fill = Chromosome), alpha = .25,) + theme_minimal()
+ggsave("Maize_SNP_density.png", plot = maize_all_density)
+teosinte_all_density <- ggplot(teosinte_merge) + geom_density(aes(x=Position, fill = Chromosome), alpha = .25,) + theme_minimal()
+ggsave("teosinte_SNP_density.png", plot = teosinte_all_density)
+
+##Density plots as grid
+maize_all_density <- ggplot(maize_merge) + geom_density(aes(x=Position, fill = Chromosome), alpha = .25,) + theme_minimal() + facet_wrap(~Chromosome)
+ggsave("Maize_SNP_density_faceted.png", plot = maize_all_density)
+teosinte_all_density <- ggplot(teosinte_merge) + geom_density(aes(x=Position, fill = Chromosome), alpha = .25,) + theme_minimal() + facet_wrap(~Chromosome)
+ggsave("teosinte_SNP_density_faceted.png", plot = teosinte_all_density)
+
+##Missing data and heterozygosity plots
+maize_het <- ggplot(m_split, aes(x=hetero, fill = Chromosome)) + geom_bar(position = position_dodge()) + theme_minimal() + scale_fill_brewer(palette = "Spectral") 
+ggsave("Maize_heterozygosity.png", plot = maize_het)
+maize_het_normalized <- ggplot(m_split, aes(x=hetero, fill = Chromosome)) + geom_bar(position = position_fill()) + theme_minimal() + scale_fill_brewer(palette = "Spectral") 
+ggsave("Maize_normalized_heterozygosity.png", plot = maize_het_normalized)
+
+teosinte_het <- ggplot(t_split, aes(x=hetero, fill = Chromosome)) + geom_bar(position = position_dodge()) + theme_minimal() + scale_fill_brewer(palette = "Spectral") 
+ggsave("teosinte_heterozygosity.png", plot = teosinte_het)
+teosinte_het_normalized <- ggplot(t_split, aes(x=hetero, fill = Chromosome)) + geom_bar(position = position_fill()) + theme_minimal() + scale_fill_brewer(palette = "Spectral") 
+ggsave("teosinte_normalized_heterozygosity.png", plot = teosinte_het_normalized)
+
+##Dot plot of position on Chromosomes
+dots_maize <- ggplot(maize_merge, aes(x=Position, y=Chromosome, fill= Chromosome)) + geom_point(size=2, alpha=.5) + scale_fill_brewer(palette = "Paired")
+ggsave("Position_along_Chromosomes_dot_plot_maize.png", plot = dots_maize)
+
+dots_teosinte <- ggplot(teosinte_merge, aes(x=Position, y=Chromosome, fill= Chromosome)) + geom_point(size=2, alpha=.5) + scale_fill_brewer(palette = "Paired")
+ggsave("Position_along_Chromosomes_dot_plot_teosinte.png", plot = dots_teosinte)
 ```
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
