@@ -1,0 +1,37 @@
+---
+title: "Bhatia_Review"
+author: "Kaitlin Higgins"
+date: "3/23/2021"
+output: html_document
+---
+
+I would suggest using the following code for uploading the fang and SNP file. This ensures that the file is dowloaded directly from the internet, instead of uploading from the C drive. 
+
+```{r}
+fang <- read.table("https://raw.githubusercontent.com/EEOB-BioData/BCB546-Spring2021/main/assignments/UNIX_Assignment/fang_et_al_genotypes.txt", header = TRUE, sep = "\t")
+snp <- read.table("https://raw.githubusercontent.com/EEOB-BioData/BCB546-Spring2021/main/assignments/UNIX_Assignment/snp_position.txt", header = TRUE, sep = "\t")
+```
+
+Something that I would also suggest maybe is working on outputting the files into different folders. This would help you manage all the files in their respective folders and it will look less cluttered. 
+You can try using the following code to see if it works. 
+```{r}
+dir.create (./Maize)
+dir.create (./Teosinte)
+#Make sure to set your working directory using the following command setwd(".") in the beginning of the code when you load the packages. Then you can move the output using the following code. 
+dir.create('./Maize') # ignore it if you have created this folder when creaatin the repositry in github, 
+chr_maize <- filter(Mdata, Chromosome != "multiple" & Chromosome != "unknown")
+for (i in 1:length(unique(chr_maize$Chromosome))){
+  chrm <-  chr_maize %>% filter(Chromosome == i) %>% arrange(Position)
+  write.table(chrm, file = paste("./Maize/Maize_Part_A",i, sep="_"))
+}
+
+dir.create('./Teosinte') # same as maize output folder
+chr_teosinte <- filter(TData, Chromosome != "multiple" & Chromosome != "unknown")
+for (i in 1:length(unique(chr_teosinte$Chromosome))) {
+  chrt <- chr_teosinte %>% filter(Chromosome == i) %>% arrange(Position)
+  write.table (chrt, file = paste("./Teosinte/Teosinte_Part_A", i, sep = "_"))
+}
+
+#Where Mdata and Tdata files include data after merging with SNP and only include the necessary columns needed. 
+```
+
